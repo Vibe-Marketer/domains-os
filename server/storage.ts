@@ -40,6 +40,133 @@ export class MemStorage implements IStorage {
     this.users = new Map();
     this.registrarConnections = new Map();
     this.domains = new Map();
+    this.initializeDemoData();
+  }
+  
+  private initializeDemoData() {
+    // Create demo user
+    const demoUser: User = {
+      id: "mock-user-123",
+      username: "demo",
+      password: "demo123"
+    };
+    this.users.set(demoUser.id, demoUser);
+    
+    // Create demo registrar connections
+    const connections = [
+      {
+        id: "godaddy-conn-1",
+        userId: "mock-user-123",
+        registrar: "godaddy",
+        apiKey: process.env.GODADDY_API_KEY || "demo-godaddy-key",
+        apiSecret: process.env.GODADDY_API_SECRET || "demo-godaddy-secret",
+        isActive: true,
+        lastSync: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
+        createdAt: new Date(),
+      },
+      {
+        id: "namecheap-conn-1", 
+        userId: "mock-user-123",
+        registrar: "namecheap",
+        apiKey: process.env.NAMECHEAP_API_KEY || "demo-namecheap-key",
+        apiSecret: process.env.NAMECHEAP_USERNAME || "demo-user",
+        isActive: true,
+        lastSync: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
+        createdAt: new Date(),
+      },
+      {
+        id: "dynadot-conn-1",
+        userId: "mock-user-123", 
+        registrar: "dynadot",
+        apiKey: process.env.DYNADOT_API_KEY || "demo-dynadot-key",
+        apiSecret: null,
+        isActive: true,
+        lastSync: new Date(Date.now() - 60 * 60 * 1000), // 1 hour ago
+        createdAt: new Date(),
+      }
+    ];
+    
+    connections.forEach(conn => {
+      this.registrarConnections.set(conn.id, conn);
+    });
+    
+    // Create demo domains
+    const demoDomains = [
+      {
+        id: "domain-1",
+        userId: "mock-user-123",
+        registrarConnectionId: "godaddy-conn-1",
+        name: "example.com",
+        registrar: "godaddy",
+        status: "active",
+        expirationDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
+        registrationDate: new Date(Date.now() - 2 * 365 * 24 * 60 * 60 * 1000), // 2 years ago
+        nameservers: ["ns1.godaddy.com", "ns2.godaddy.com"],
+        autoRenew: true,
+        lastUpdated: new Date(),
+        registrarDomainId: "12345"
+      },
+      {
+        id: "domain-2", 
+        userId: "mock-user-123",
+        registrarConnectionId: "namecheap-conn-1",
+        name: "testdomain.net",
+        registrar: "namecheap",
+        status: "expiring",
+        expirationDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000), // 15 days from now
+        registrationDate: new Date(Date.now() - 340 * 24 * 60 * 60 * 1000), // Almost 1 year ago
+        nameservers: ["dns1.registrar-servers.com", "dns2.registrar-servers.com"],
+        autoRenew: false,
+        lastUpdated: new Date(),
+        registrarDomainId: "nc-67890"
+      },
+      {
+        id: "domain-3",
+        userId: "mock-user-123", 
+        registrarConnectionId: "dynadot-conn-1",
+        name: "mysite.org",
+        registrar: "dynadot",
+        status: "active",
+        expirationDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000), // 6 months from now
+        registrationDate: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000), // 6 months ago
+        nameservers: ["ns1.dynadot.com", "ns2.dynadot.com"],
+        autoRenew: true,
+        lastUpdated: new Date(),
+        registrarDomainId: "dyn-abc123"
+      },
+      {
+        id: "domain-4",
+        userId: "mock-user-123",
+        registrarConnectionId: "godaddy-conn-1", 
+        name: "coldemaildomain.io",
+        registrar: "godaddy",
+        status: "active",
+        expirationDate: new Date(Date.now() + 300 * 24 * 60 * 60 * 1000), // 10 months from now
+        registrationDate: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000), // 2 months ago
+        nameservers: ["ns1.cloudflare.com", "ns2.cloudflare.com"],
+        autoRenew: false,
+        lastUpdated: new Date(),
+        registrarDomainId: "gd-456789"
+      },
+      {
+        id: "domain-5",
+        userId: "mock-user-123",
+        registrarConnectionId: "namecheap-conn-1",
+        name: "newsletter-sender.com",
+        registrar: "namecheap", 
+        status: "active",
+        expirationDate: new Date(Date.now() + 250 * 24 * 60 * 60 * 1000), // 8 months from now
+        registrationDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 1 month ago
+        nameservers: ["ns1.digitalocean.com", "ns2.digitalocean.com"],
+        autoRenew: true,
+        lastUpdated: new Date(),
+        registrarDomainId: "nc-111222"
+      }
+    ];
+    
+    demoDomains.forEach(domain => {
+      this.domains.set(domain.id, domain);
+    });
   }
 
   async getUser(id: string): Promise<User | undefined> {

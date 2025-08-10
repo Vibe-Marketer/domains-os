@@ -23,6 +23,11 @@ class GoDaddyAPI implements RegistrarAPI {
   }
 
   async testConnection(): Promise<boolean> {
+    // Return true for demo credentials to allow testing
+    if (this.apiKey.startsWith('demo-')) {
+      return true;
+    }
+    
     try {
       const response = await fetch('https://api.godaddy.com/v1/domains', {
         headers: {
@@ -45,6 +50,11 @@ class GoDaddyAPI implements RegistrarAPI {
     nameservers: string[];
     registrarDomainId: string;
   }>> {
+    // Return empty array for demo credentials (domains are pre-loaded in storage)
+    if (this.apiKey.startsWith('demo-')) {
+      return [];
+    }
+    
     try {
       const response = await fetch('https://api.godaddy.com/v1/domains', {
         headers: {
@@ -73,6 +83,11 @@ class GoDaddyAPI implements RegistrarAPI {
   }
 
   async updateNameservers(domainName: string, nameservers: string[]): Promise<boolean> {
+    // Return true for demo credentials (update is simulated)
+    if (this.apiKey.startsWith('demo-')) {
+      return true;
+    }
+    
     try {
       const response = await fetch(`https://api.godaddy.com/v1/domains/${domainName}/records/NS`, {
         method: 'PUT',
@@ -102,6 +117,11 @@ class NamecheapAPI implements RegistrarAPI {
   }
 
   async testConnection(): Promise<boolean> {
+    // Return true for demo credentials to allow testing
+    if (this.apiKey.startsWith('demo-')) {
+      return true;
+    }
+    
     try {
       const response = await fetch(`https://api.namecheap.com/xml.response?ApiUser=${this.username}&ApiKey=${this.apiKey}&UserName=${this.username}&Command=namecheap.domains.getList&ClientIp=127.0.0.1`);
       const text = await response.text();
@@ -120,6 +140,11 @@ class NamecheapAPI implements RegistrarAPI {
     nameservers: string[];
     registrarDomainId: string;
   }>> {
+    // Return empty array for demo credentials (domains are pre-loaded in storage)
+    if (this.apiKey.startsWith('demo-')) {
+      return [];
+    }
+    
     try {
       const response = await fetch(`https://api.namecheap.com/xml.response?ApiUser=${this.username}&ApiKey=${this.apiKey}&UserName=${this.username}&Command=namecheap.domains.getList&ClientIp=127.0.0.1`);
       const text = await response.text();
@@ -163,6 +188,11 @@ class NamecheapAPI implements RegistrarAPI {
   }
 
   async updateNameservers(domainName: string, nameservers: string[]): Promise<boolean> {
+    // Return true for demo credentials (update is simulated)
+    if (this.apiKey.startsWith('demo-')) {
+      return true;
+    }
+    
     try {
       const nsParams = nameservers.map((ns, index) => `Nameserver${index + 1}=${ns}`).join('&');
       const response = await fetch(`https://api.namecheap.com/xml.response?ApiUser=${this.username}&ApiKey=${this.apiKey}&UserName=${this.username}&Command=namecheap.domains.dns.setCustom&ClientIp=127.0.0.1&SLD=${domainName.split('.')[0]}&TLD=${domainName.split('.')[1]}&${nsParams}`);
@@ -183,6 +213,11 @@ class DynadotAPI implements RegistrarAPI {
   }
 
   async testConnection(): Promise<boolean> {
+    // Return true for demo credentials to allow testing
+    if (this.apiKey.startsWith('demo-')) {
+      return true;
+    }
+    
     try {
       const response = await fetch(`https://api.dynadot.com/api3.json?key=${this.apiKey}&command=list_domain`);
       const data = await response.json();
@@ -201,6 +236,11 @@ class DynadotAPI implements RegistrarAPI {
     nameservers: string[];
     registrarDomainId: string;
   }>> {
+    // Return empty array for demo credentials (domains are pre-loaded in storage)
+    if (this.apiKey.startsWith('demo-')) {
+      return [];
+    }
+    
     try {
       const response = await fetch(`https://api.dynadot.com/api3.json?key=${this.apiKey}&command=list_domain`);
       const data = await response.json();
@@ -225,6 +265,11 @@ class DynadotAPI implements RegistrarAPI {
   }
 
   async updateNameservers(domainName: string, nameservers: string[]): Promise<boolean> {
+    // Return true for demo credentials (update is simulated)
+    if (this.apiKey.startsWith('demo-')) {
+      return true;
+    }
+    
     try {
       const nsParams = nameservers.map((ns, index) => `ns${index}=${ns}`).join('&');
       const response = await fetch(`https://api.dynadot.com/api3.json?key=${this.apiKey}&command=set_ns&domain=${domainName}&${nsParams}`);
