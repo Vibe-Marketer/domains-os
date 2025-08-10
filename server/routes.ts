@@ -267,13 +267,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const api = createRegistrarAPI(connection);
         
-        // Use Dynadot-specific search if available
+        // Use registrar-specific search if available
         if (connection.registrar === 'dynadot' && 'searchDomain' in api) {
           const result = await (api as any).searchDomain(domainName, showPrice === 'true', currency as string);
           return res.json({ registrar: registrar, result });
+        } else if (connection.registrar === 'godaddy' && 'checkDomainAvailability' in api) {
+          const result = await (api as any).checkDomainAvailability(domainName);
+          return res.json({ registrar: registrar, result });
+        } else if (connection.registrar === 'namecheap' && 'checkDomainAvailability' in api) {
+          const result = await (api as any).checkDomainAvailability(domainName);
+          return res.json({ registrar: registrar, result });
         }
         
-        // Fallback to basic availability check for other registrars
+        // Fallback for registrars without search implementation
         return res.json({ 
           registrar: registrar, 
           result: { 
@@ -293,6 +299,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (connection.registrar === 'dynadot' && 'searchDomain' in api) {
             const result = await (api as any).searchDomain(domainName, showPrice === 'true', currency as string);
             results.push({ registrar: connection.registrar, result });
+          } else if (connection.registrar === 'godaddy' && 'checkDomainAvailability' in api) {
+            const result = await (api as any).checkDomainAvailability(domainName);
+            // Normalize GoDaddy response format to match others
+            const normalizedResult = {
+              domain_name: domainName,
+              available: result.available ? 'yes' : 'no',
+              premium: result.price && result.price > 0 ? 'yes' : 'no',
+              price_list: result.price ? [{
+                currency: result.currency || 'USD',
+                registration: result.price.toString(),
+                transfer: result.price.toString(),
+                restore: (result.price * 1.5).toString()
+              }] : undefined
+            };
+            results.push({ registrar: connection.registrar, result: normalizedResult });
+          } else if (connection.registrar === 'namecheap' && 'checkDomainAvailability' in api) {
+            const result = await (api as any).checkDomainAvailability(domainName);
+            // Normalize Namecheap response format to match others
+            const normalizedResult = {
+              domain_name: domainName,
+              available: result.available ? 'yes' : 'no',
+              premium: result.premiumName ? 'yes' : 'no'
+            };
+            results.push({ registrar: connection.registrar, result: normalizedResult });
           } else {
             results.push({ 
               registrar: connection.registrar, 
@@ -347,13 +377,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (connection.registrar === 'dynadot' && 'bulkSearchDomains' in api) {
           const result = await (api as any).bulkSearchDomains(domainNames);
           return res.json({ registrar: registrar, result });
+        } else if (connection.registrar === 'godaddy' && 'bulkCheckAvailability' in api) {
+          const result = await (api as any).bulkCheckAvailability(domainNames);
+          return res.json({ registrar: registrar, result });
+        } else {
+          // Sequential search for registrars without bulk search
+          const result = [];
+          for (const domain of domainNames) {
+            try {
+              if (connection.registrar === 'namecheap' && 'checkDomainAvailability' in api) {
+                const domainResult = await (api as any).checkDomainAvailability(domain);
+                result.push({
+                  domain: domain,
+                  available: domainResult.available,
+                  premiumName: domainResult.premiumName
+                });
+              } else {
+                result.push({ domain: domain, available: false });
+              }
+            } catch (error) {
+              result.push({ domain: domain, available: false, error: error.message });
+            }
+          }
+          return res.json({ registrar: registrar, result });
         }
-        
-        // Fallback for other registrars
-        return res.json({ 
-          registrar: registrar, 
-          result: domainNames.map(name => ({ domain_name: name, available: 'unknown' }))
-        });
       }
 
       // Bulk search across all registrars

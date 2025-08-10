@@ -150,11 +150,11 @@ export default function DomainSearch() {
                         </span>
                       </div>
                       
-                      {result.result.premium && (
+                      {(result.result.premium || result.result.premiumName) && (
                         <div>
                           <span className="font-medium">Premium:</span>{" "}
-                          <span className={result.result.premium === 'yes' ? 'text-yellow-600' : 'text-gray-600'}>
-                            {result.result.premium === 'yes' ? 'Yes' : 'No'}
+                          <span className={(result.result.premium === 'yes' || result.result.premiumName) ? 'text-yellow-600' : 'text-gray-600'}>
+                            {(result.result.premium === 'yes' || result.result.premiumName) ? 'Yes' : 'No'}
                           </span>
                         </div>
                       )}

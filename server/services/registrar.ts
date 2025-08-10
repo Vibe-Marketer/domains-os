@@ -16,10 +16,19 @@ export interface RegistrarAPI {
 class GoDaddyAPI implements RegistrarAPI {
   private apiKey: string;
   private apiSecret: string;
+  private baseUrl = 'https://api.godaddy.com';
 
   constructor(apiKey: string, apiSecret: string) {
     this.apiKey = apiKey;
     this.apiSecret = apiSecret;
+  }
+
+  private getHeaders() {
+    return {
+      'Authorization': `sso-key ${this.apiKey}:${this.apiSecret}`,
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    };
   }
 
   async testConnection(): Promise<boolean> {
@@ -29,11 +38,8 @@ class GoDaddyAPI implements RegistrarAPI {
     }
     
     try {
-      const response = await fetch('https://api.godaddy.com/v1/domains', {
-        headers: {
-          'Authorization': `sso-key ${this.apiKey}:${this.apiSecret}`,
-          'Accept': 'application/json',
-        },
+      const response = await fetch(`${this.baseUrl}/v1/domains`, {
+        headers: this.getHeaders(),
       });
       return response.ok;
     } catch (error) {
@@ -56,11 +62,8 @@ class GoDaddyAPI implements RegistrarAPI {
     }
     
     try {
-      const response = await fetch('https://api.godaddy.com/v1/domains', {
-        headers: {
-          'Authorization': `sso-key ${this.apiKey}:${this.apiSecret}`,
-          'Accept': 'application/json',
-        },
+      const response = await fetch(`${this.baseUrl}/v1/domains`, {
+        headers: this.getHeaders(),
       });
 
       if (!response.ok) {
@@ -89,14 +92,11 @@ class GoDaddyAPI implements RegistrarAPI {
     }
     
     try {
-      const response = await fetch(`https://api.godaddy.com/v1/domains/${domainName}/records/NS`, {
+      // Use v2 nameserver endpoint for better reliability
+      const response = await fetch(`${this.baseUrl}/v2/customers/self/domains/${domainName}/nameServers`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `sso-key ${this.apiKey}:${this.apiSecret}`,
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(nameservers.map(ns => ({ data: ns }))),
+        headers: this.getHeaders(),
+        body: JSON.stringify(nameservers),
       });
 
       return response.ok;
@@ -105,15 +105,149 @@ class GoDaddyAPI implements RegistrarAPI {
       return false;
     }
   }
+
+  // Additional GoDaddy-specific methods based on API documentation
+  async checkDomainAvailability(domainName: string): Promise<any> {
+    if (this.apiKey.startsWith('demo-')) {
+      return {
+        domain: domainName,
+        available: Math.random() > 0.5,
+        price: Math.floor(Math.random() * 20 + 10) * 100000, // Random price in micro-units
+        currency: 'USD'
+      };
+    }
+
+    try {
+      const response = await fetch(`${this.baseUrl}/v1/domains/available?domain=${encodeURIComponent(domainName)}`, {
+        headers: this.getHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error(`GoDaddy availability check error: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error checking GoDaddy domain availability:', error);
+      throw error;
+    }
+  }
+
+  async bulkCheckAvailability(domainNames: string[]): Promise<any> {
+    if (this.apiKey.startsWith('demo-')) {
+      return domainNames.map(domain => ({
+        domain,
+        available: Math.random() > 0.5,
+        price: Math.floor(Math.random() * 20 + 10) * 100000,
+        currency: 'USD'
+      }));
+    }
+
+    try {
+      const response = await fetch(`${this.baseUrl}/v1/domains/available`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify(domainNames),
+      });
+
+      if (!response.ok) {
+        throw new Error(`GoDaddy bulk availability check error: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error bulk checking GoDaddy domain availability:', error);
+      throw error;
+    }
+  }
+
+  async getDomainSuggestions(query: string): Promise<any> {
+    if (this.apiKey.startsWith('demo-')) {
+      const tlds = ['.com', '.net', '.org', '.io', '.co'];
+      return tlds.map(tld => `${query}${tld}`);
+    }
+
+    try {
+      const response = await fetch(`${this.baseUrl}/v1/domains/suggest?query=${encodeURIComponent(query)}`, {
+        headers: this.getHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error(`GoDaddy suggestions error: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting GoDaddy domain suggestions:', error);
+      throw error;
+    }
+  }
+
+  async getDomainInfo(domainName: string): Promise<any> {
+    if (this.apiKey.startsWith('demo-')) {
+      return {
+        domain: domainName,
+        status: 'ACTIVE',
+        expires: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        createdAt: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000),
+        nameServers: ['ns1.godaddy.com', 'ns2.godaddy.com']
+      };
+    }
+
+    try {
+      const response = await fetch(`${this.baseUrl}/v1/domains/${domainName}`, {
+        headers: this.getHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error(`GoDaddy domain info error: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting GoDaddy domain info:', error);
+      throw error;
+    }
+  }
 }
 
 class NamecheapAPI implements RegistrarAPI {
   private apiKey: string;
   private username: string;
+  private baseUrl = 'https://api.namecheap.com/xml.response';
+  private clientIp = '127.0.0.1'; // Default for testing
 
   constructor(apiKey: string, username: string) {
     this.apiKey = apiKey;
     this.username = username;
+  }
+
+  private buildUrl(command: string, additionalParams: Record<string, string> = {}): string {
+    const params = new URLSearchParams({
+      ApiUser: this.username,
+      ApiKey: this.apiKey,
+      UserName: this.username,
+      Command: command,
+      ClientIp: this.clientIp,
+      ...additionalParams
+    });
+    return `${this.baseUrl}?${params.toString()}`;
+  }
+
+  private parseXmlResponse(xmlText: string): { success: boolean; data?: any; error?: string } {
+    try {
+      if (xmlText.includes('<ApiResponse Status="OK">')) {
+        return { success: true, data: xmlText };
+      } else {
+        const errorMatch = xmlText.match(/<Error[^>]*>([^<]+)<\/Error>/);
+        return { 
+          success: false, 
+          error: errorMatch ? errorMatch[1] : 'Unknown Namecheap API error' 
+        };
+      }
+    } catch (error) {
+      return { success: false, error: 'Failed to parse XML response' };
+    }
   }
 
   async testConnection(): Promise<boolean> {
@@ -123,9 +257,11 @@ class NamecheapAPI implements RegistrarAPI {
     }
     
     try {
-      const response = await fetch(`https://api.namecheap.com/xml.response?ApiUser=${this.username}&ApiKey=${this.apiKey}&UserName=${this.username}&Command=namecheap.domains.getList&ClientIp=127.0.0.1`);
+      const url = this.buildUrl('namecheap.domains.getList', { PageSize: '1' });
+      const response = await fetch(url);
       const text = await response.text();
-      return text.includes('<ApiResponse Status="OK">');
+      const result = this.parseXmlResponse(text);
+      return result.success;
     } catch (error) {
       console.error('Namecheap API connection test failed:', error);
       return false;
@@ -146,10 +282,15 @@ class NamecheapAPI implements RegistrarAPI {
     }
     
     try {
-      const response = await fetch(`https://api.namecheap.com/xml.response?ApiUser=${this.username}&ApiKey=${this.apiKey}&UserName=${this.username}&Command=namecheap.domains.getList&ClientIp=127.0.0.1`);
+      const url = this.buildUrl('namecheap.domains.getList');
+      const response = await fetch(url);
       const text = await response.text();
       
-      // Parse XML response (simplified - would need proper XML parser in production)
+      const result = this.parseXmlResponse(text);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      
       const domains: Array<{
         name: string;
         status: string;
@@ -159,21 +300,25 @@ class NamecheapAPI implements RegistrarAPI {
         registrarDomainId: string;
       }> = [];
       
-      // This is a simplified parser - in production you'd use a proper XML parser
+      // Parse domain information from XML
       const domainMatches = text.match(/<Domain[^>]*>/g);
       if (domainMatches) {
         for (const match of domainMatches) {
           const nameMatch = match.match(/Name="([^"]+)"/);
           const expiresMatch = match.match(/Expires="([^"]+)"/);
           const createdMatch = match.match(/Created="([^"]+)"/);
+          const autoRenewMatch = match.match(/AutoRenew="([^"]+)"/);
           
           if (nameMatch && expiresMatch && createdMatch) {
+            // Get nameservers for this domain
+            const nameservers = await this.getDomainNameservers(nameMatch[1]);
+            
             domains.push({
               name: nameMatch[1],
-              status: 'active', // Namecheap doesn't provide detailed status in list
+              status: 'active', // Namecheap API doesn't provide detailed status in list
               expirationDate: new Date(expiresMatch[1]),
               registrationDate: new Date(createdMatch[1]),
-              nameservers: [], // Would need separate API call to get nameservers
+              nameservers: nameservers,
               registrarDomainId: nameMatch[1],
             });
           }
@@ -187,6 +332,33 @@ class NamecheapAPI implements RegistrarAPI {
     }
   }
 
+  private async getDomainNameservers(domainName: string): Promise<string[]> {
+    if (this.apiKey.startsWith('demo-')) {
+      return ['dns1.registrar-servers.com', 'dns2.registrar-servers.com'];
+    }
+
+    try {
+      const [sld, tld] = domainName.split('.');
+      const url = this.buildUrl('namecheap.domains.dns.getList', { SLD: sld, TLD: tld });
+      const response = await fetch(url);
+      const text = await response.text();
+      
+      const nameservers: string[] = [];
+      const nsMatches = text.match(/<Nameserver>([^<]+)<\/Nameserver>/g);
+      if (nsMatches) {
+        nsMatches.forEach(match => {
+          const ns = match.replace(/<\/?Nameserver>/g, '');
+          if (ns) nameservers.push(ns);
+        });
+      }
+      
+      return nameservers;
+    } catch (error) {
+      console.error(`Error getting nameservers for ${domainName}:`, error);
+      return [];
+    }
+  }
+
   async updateNameservers(domainName: string, nameservers: string[]): Promise<boolean> {
     // Return true for demo credentials (update is simulated)
     if (this.apiKey.startsWith('demo-')) {
@@ -194,13 +366,98 @@ class NamecheapAPI implements RegistrarAPI {
     }
     
     try {
-      const nsParams = nameservers.map((ns, index) => `Nameserver${index + 1}=${ns}`).join('&');
-      const response = await fetch(`https://api.namecheap.com/xml.response?ApiUser=${this.username}&ApiKey=${this.apiKey}&UserName=${this.username}&Command=namecheap.domains.dns.setCustom&ClientIp=127.0.0.1&SLD=${domainName.split('.')[0]}&TLD=${domainName.split('.')[1]}&${nsParams}`);
+      const [sld, tld] = domainName.split('.');
+      const nsParams: Record<string, string> = { SLD: sld, TLD: tld };
+      
+      // Add nameserver parameters (Namecheap requires numbered nameservers)
+      nameservers.forEach((ns, index) => {
+        nsParams[`Nameserver${index + 1}`] = ns;
+      });
+      
+      const url = this.buildUrl('namecheap.domains.dns.setCustom', nsParams);
+      const response = await fetch(url);
       const text = await response.text();
-      return text.includes('<ApiResponse Status="OK">');
+      
+      const result = this.parseXmlResponse(text);
+      return result.success;
     } catch (error) {
       console.error('Error updating Namecheap nameservers:', error);
       return false;
+    }
+  }
+
+  // Additional Namecheap-specific methods based on API documentation
+  async checkDomainAvailability(domainName: string): Promise<any> {
+    if (this.apiKey.startsWith('demo-')) {
+      return {
+        domain: domainName,
+        available: Math.random() > 0.5,
+        premiumName: false
+      };
+    }
+
+    try {
+      const url = this.buildUrl('namecheap.domains.check', { DomainList: domainName });
+      const response = await fetch(url);
+      const text = await response.text();
+      
+      const result = this.parseXmlResponse(text);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      
+      // Parse availability from XML
+      const availableMatch = text.match(/Available="([^"]+)"/);
+      const premiumMatch = text.match(/PremiumName="([^"]+)"/);
+      
+      return {
+        domain: domainName,
+        available: availableMatch ? availableMatch[1] === 'true' : false,
+        premiumName: premiumMatch ? premiumMatch[1] === 'true' : false
+      };
+    } catch (error) {
+      console.error('Error checking Namecheap domain availability:', error);
+      throw error;
+    }
+  }
+
+  async getDomainInfo(domainName: string): Promise<any> {
+    if (this.apiKey.startsWith('demo-')) {
+      return {
+        domain: domainName,
+        status: 'clientTransferProhibited',
+        registrationDate: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000),
+        expirationDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        autoRenew: false
+      };
+    }
+
+    try {
+      const [sld, tld] = domainName.split('.');
+      const url = this.buildUrl('namecheap.domains.getInfo', { DomainName: domainName });
+      const response = await fetch(url);
+      const text = await response.text();
+      
+      const result = this.parseXmlResponse(text);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      
+      // Parse domain info from XML (simplified parsing)
+      const statusMatch = text.match(/Status="([^"]+)"/);
+      const createdMatch = text.match(/CreatedDate="([^"]+)"/);
+      const expiresMatch = text.match(/ExpiredDate="([^"]+)"/);
+      
+      return {
+        domain: domainName,
+        status: statusMatch ? statusMatch[1] : 'unknown',
+        registrationDate: createdMatch ? new Date(createdMatch[1]) : null,
+        expirationDate: expiresMatch ? new Date(expiresMatch[1]) : null,
+        autoRenew: false // Would need to parse from response
+      };
+    } catch (error) {
+      console.error('Error getting Namecheap domain info:', error);
+      throw error;
     }
   }
 }

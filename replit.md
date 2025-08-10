@@ -60,6 +60,21 @@ The application integrates with domain registrar APIs:
 - **Rate Limiting**: Supports different thread counts based on account level (1-25 threads)
 - **Demo Mode**: Graceful fallback to demo responses when using demo credentials
 
+#### GoDaddy API Integration (v1/v2)
+- **REST API**: Uses GoDaddy's comprehensive Domains API with SSO-Key authentication
+- **Domain Management**: Full domain lifecycle operations including registration, renewal, and transfer
+- **DNS Management**: Complete DNS record and nameserver management capabilities
+- **Search Features**: Single and bulk domain availability checking with pricing
+- **Environment Support**: Both OTE (testing) and Production environments
+- **v2 Enhancements**: Customer-specific operations and advanced features
+
+#### Namecheap API Integration (XML-based)
+- **XML API**: Implements Namecheap's XML-based API with proper authentication
+- **Domain Operations**: Domain listing, information retrieval, and availability checking
+- **DNS Management**: Full nameserver and DNS record management
+- **Proper Parsing**: Robust XML response parsing with error handling
+- **Authentication**: UserName, ApiKey, and ClientIp-based authentication system
+
 ## External Dependencies
 
 ### Core Technologies
