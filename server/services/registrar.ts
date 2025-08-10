@@ -214,8 +214,8 @@ class GoDaddyAPI implements RegistrarAPI {
 class NamecheapAPI implements RegistrarAPI {
   private apiKey: string;
   private username: string;
-  private baseUrl = 'https://api.sandbox.namecheap.com/xml.response'; // Use sandbox for testing
-  private clientIp = '127.0.0.1'; // Default for testing
+  private baseUrl = 'https://api.namecheap.com/xml.response'; // Production API
+  private clientIp = '34.135.154.200'; // Replit's external IP
 
   constructor(apiKey: string, username: string) {
     this.apiKey = apiKey;
@@ -464,18 +464,19 @@ class NamecheapAPI implements RegistrarAPI {
 
 class DynadotAPI implements RegistrarAPI {
   private apiKey: string;
-  private baseUrl = 'https://api.dynadot.com/restful/v1';
+  private baseUrl = 'https://api.dynadot.com/api3.json';
 
   constructor(apiKey: string) {
     this.apiKey = apiKey;
   }
 
-  private getHeaders() {
-    return {
-      'Accept': 'application/json',
-      'Authorization': `Bearer ${this.apiKey}`,
-      'Content-Type': 'application/json'
-    };
+  private buildUrl(command: string, additionalParams: Record<string, string> = {}): string {
+    const params = new URLSearchParams({
+      key: this.apiKey,
+      command: command,
+      ...additionalParams
+    });
+    return `${this.baseUrl}?${params.toString()}`;
   }
 
   async testConnection(): Promise<boolean> {
@@ -485,14 +486,10 @@ class DynadotAPI implements RegistrarAPI {
     }
     
     try {
-      // Use search endpoint to test connection (non-transactional)
-      const response = await fetch(`${this.baseUrl}/domains/example.com/search`, {
-        method: 'GET',
-        headers: this.getHeaders()
-      });
-      
+      // Use account info endpoint to test connection
+      const response = await fetch(this.buildUrl('get_account_info'));
       const data = await response.json();
-      return response.ok && data.code === 200;
+      return response.ok && (data.GetAccountInfoResponse?.ResponseCode === 0 || data.Response?.ResponseCode === '0');
     } catch (error) {
       console.error('Dynadot API connection test failed:', error);
       return false;
@@ -513,11 +510,43 @@ class DynadotAPI implements RegistrarAPI {
     }
     
     try {
-      // Note: Dynadot RESTful API doesn't have a direct list_domains endpoint in v1
-      // We'll need to use the account/domains endpoint when available
-      // For now, return empty array for real API calls until full domain listing is implemented
-      console.log('Dynadot domain listing not yet implemented - using pre-loaded demo data');
-      return [];
+      const response = await fetch(this.buildUrl('list_domain'));
+      const data = await response.json();
+      
+      if (!response.ok) {
+        console.error('Dynadot API response:', data);
+        throw new Error(`Dynadot API error: ${response.status}`);
+      }
+
+      if (!data.ListDomainResponse || data.ListDomainResponse.ResponseCode !== 0) {
+        throw new Error(`Dynadot API error: ${data.ListDomainResponse?.ErrorMessage || 'Unknown error'}`);
+      }
+
+      const domains: Array<{
+        name: string;
+        status: string;
+        expirationDate: Date;
+        registrationDate: Date;
+        nameservers: string[];
+        registrarDomainId: string;
+      }> = [];
+
+      const domainInfos = data.ListDomainResponse?.DomainInfoList || [];
+      
+      if (Array.isArray(domainInfos)) {
+        for (const domain of domainInfos) {
+          domains.push({
+            name: domain.Name,
+            status: domain.Status || 'active',
+            expirationDate: new Date(domain.Expiration),
+            registrationDate: new Date(domain.Created || domain.Expiration),
+            nameservers: domain.NameServerSettings?.NameServer || [],
+            registrarDomainId: domain.Name,
+          });
+        }
+      }
+      
+      return domains;
     } catch (error) {
       console.error('Error fetching Dynadot domains:', error);
       throw error;
