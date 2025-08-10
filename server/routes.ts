@@ -6,6 +6,10 @@ import { insertRegistrarConnectionSchema, updateNameserversSchema } from "@share
 import { initializeDatabase } from "./init-db";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Health check endpoint for Railway
+  app.get('/api/health', (req, res) => {
+    res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
+  });
   // Initialize database and get demo user ID
   const demoUserId = await initializeDatabase();
 
