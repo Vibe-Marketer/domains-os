@@ -511,17 +511,20 @@ class DynadotAPI implements RegistrarAPI {
     
     try {
       const response = await fetch(this.buildUrl('list_domain'));
-      const data = await response.json();
+      const text = await response.text();
       
       if (!response.ok) {
-        console.error('Dynadot API response:', data);
+        console.error('Dynadot API response:', text);
         throw new Error(`Dynadot API error: ${response.status}`);
       }
 
-      if (!data.ListDomainResponse || data.ListDomainResponse.ResponseCode !== 0) {
-        throw new Error(`Dynadot API error: ${data.ListDomainResponse?.ErrorMessage || 'Unknown error'}`);
+      // Check for error in XML response
+      if (text.includes('<Error>')) {
+        const errorMatch = text.match(/<Error>([^<]+)<\/Error>/);
+        throw new Error(`Dynadot API error: ${errorMatch ? errorMatch[1] : 'Unknown error'}`);
       }
 
+      // Parse domains from XML response
       const domains: Array<{
         name: string;
         status: string;
@@ -531,17 +534,21 @@ class DynadotAPI implements RegistrarAPI {
         registrarDomainId: string;
       }> = [];
 
-      const domainInfos = data.ListDomainResponse?.DomainInfoList || [];
+      // Extract domain information from XML
+      const domainMatches = text.match(/<Domain[^>]*Name="([^"]+)"[^>]*Expiration="([^"]+)"[^>]*\/>/g) || [];
       
-      if (Array.isArray(domainInfos)) {
-        for (const domain of domainInfos) {
+      for (const match of domainMatches) {
+        const nameMatch = match.match(/Name="([^"]+)"/);
+        const expirationMatch = match.match(/Expiration="([^"]+)"/);
+        
+        if (nameMatch && expirationMatch) {
           domains.push({
-            name: domain.Name,
-            status: domain.Status || 'active',
-            expirationDate: new Date(domain.Expiration),
-            registrationDate: new Date(domain.Created || domain.Expiration),
-            nameservers: domain.NameServerSettings?.NameServer || [],
-            registrarDomainId: domain.Name,
+            name: nameMatch[1],
+            status: 'active',
+            expirationDate: new Date(parseInt(expirationMatch[1]) * 1000), // Unix timestamp to Date
+            registrationDate: new Date(), // Would need separate API call for creation date
+            nameservers: [],
+            registrarDomainId: nameMatch[1],
           });
         }
       }
@@ -587,7 +594,9 @@ class DynadotAPI implements RegistrarAPI {
 
       const response = await fetch(url.toString(), {
         method: 'GET',
-        headers: this.getHeaders()
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
 
       if (!response.ok) {
@@ -614,7 +623,9 @@ class DynadotAPI implements RegistrarAPI {
     try {
       const response = await fetch(`${this.baseUrl}/domains/bulk_search`, {
         method: 'GET', // Based on documentation, this is a GET request with query params
-        headers: this.getHeaders()
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
 
       if (!response.ok) {
