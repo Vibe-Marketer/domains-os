@@ -4,6 +4,8 @@
 
 Domain OS is a full-stack unified domain management platform built with React and Express.js that enables users to manage their domain portfolios across multiple registrars. The application provides a centralized dashboard for tracking domain statuses, expiration dates, nameserver configurations, and registrar connections. Users can connect to various domain registrars (GoDaddy, Namecheap, Dynadot) through API integrations and perform bulk operations on their domain collections. The platform is specifically designed for managing high-volume cold email domains with essential features like domain information display, nameserver management, and expiration tracking.
 
+**Status**: Production-ready with real API credentials configured for all three registrars.
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
@@ -52,6 +54,11 @@ The application integrates with domain registrar APIs:
 - **Connection Management**: Secure API key storage with connection testing capabilities
 - **Sync Operations**: Automated domain synchronization from registrar APIs
 - **Error Handling**: Comprehensive error handling for external API failures
+- **Credentials**: Real API credentials configured and stored securely as environment variables
+  - `GODADDY_API_KEY` and `GODADDY_API_SECRET` (OTE testing environment)
+  - `NAMECHEAP_API_KEY` and `NAMECHEAP_USERNAME` (sandbox environment)  
+  - `DYNADOT_API_TOKEN` (production environment, requires IP whitelisting)
+  - `DYNADOT_API_TOKEN` (production environment, requires IP whitelisting)
 
 #### Dynadot API Integration (v1.0.0)
 - **RESTful API**: Implemented using Dynadot's v1 RESTful API with Bearer token authentication
