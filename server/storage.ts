@@ -78,7 +78,7 @@ export class MemStorage implements IStorage {
         id: "dynadot-conn-1",
         userId: "mock-user-123", 
         registrar: "dynadot",
-        apiKey: process.env.DYNADOT_API_KEY || "demo-dynadot-key",
+        apiKey: process.env.DYNADOT_API_TOKEN || "demo-dynadot-key",
         apiSecret: null,
         isActive: true,
         lastSync: new Date(Date.now() - 60 * 60 * 1000), // 1 hour ago

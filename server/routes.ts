@@ -396,7 +396,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 result.push({ domain: domain, available: false });
               }
             } catch (error) {
-              result.push({ domain: domain, available: false, error: error.message });
+              result.push({ domain: domain, available: false, error: error instanceof Error ? error.message : 'Unknown error' });
             }
           }
           return res.json({ registrar: registrar, result });
@@ -430,6 +430,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Bulk domain search error:", error);
       res.status(500).json({ message: "Failed to perform bulk search" });
+    }
+  });
+
+  // API status endpoint
+  app.get("/api/status", async (req, res) => {
+    try {
+      const connections = await storage.getRegistrarConnections(MOCK_USER_ID);
+      const status = [];
+
+      for (const connection of connections) {
+        let apiStatus = 'unknown';
+        let lastError = null;
+        let features = [];
+
+        try {
+          const api = createRegistrarAPI(connection);
+          const isWorking = await api.testConnection();
+          
+          if (isWorking) {
+            apiStatus = 'connected';
+            // Check available features
+            if ('searchDomain' in api) features.push('domain_search');
+            if ('bulkSearchDomains' in api) features.push('bulk_search');
+            if ('checkDomainAvailability' in api) features.push('availability_check');
+            if ('getDomains' in api) features.push('domain_listing');
+            if ('updateNameservers' in api) features.push('nameserver_management');
+          } else {
+            apiStatus = 'connection_failed';
+          }
+        } catch (error) {
+          apiStatus = 'error';
+          lastError = error instanceof Error ? error.message : 'Unknown error';
+        }
+
+        status.push({
+          registrar: connection.registrar,
+          status: apiStatus,
+          features,
+          lastError,
+          usingRealCredentials: !connection.apiKey.startsWith('demo-'),
+          environment: connection.registrar === 'godaddy' ? 'OTE (Testing)' : 
+                      connection.registrar === 'namecheap' ? 'Sandbox' : 'Production'
+        });
+      }
+
+      res.json({ 
+        status,
+        summary: {
+          total: connections.length,
+          connected: status.filter(s => s.status === 'connected').length,
+          errors: status.filter(s => s.status === 'error').length
+        }
+      });
+    } catch (error) {
+      console.error("Status check error:", error);
+      res.status(500).json({ message: "Failed to check API status" });
     }
   });
 

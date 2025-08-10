@@ -16,7 +16,7 @@ export interface RegistrarAPI {
 class GoDaddyAPI implements RegistrarAPI {
   private apiKey: string;
   private apiSecret: string;
-  private baseUrl = 'https://api.godaddy.com';
+  private baseUrl = 'https://api.ote-godaddy.com'; // Use OTE (testing) environment
 
   constructor(apiKey: string, apiSecret: string) {
     this.apiKey = apiKey;
@@ -214,7 +214,7 @@ class GoDaddyAPI implements RegistrarAPI {
 class NamecheapAPI implements RegistrarAPI {
   private apiKey: string;
   private username: string;
-  private baseUrl = 'https://api.namecheap.com/xml.response';
+  private baseUrl = 'https://api.sandbox.namecheap.com/xml.response'; // Use sandbox for testing
   private clientIp = '127.0.0.1'; // Default for testing
 
   constructor(apiKey: string, username: string) {
