@@ -3,15 +3,16 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { createRegistrarAPI } from "./services/registrar";
 import { insertRegistrarConnectionSchema, updateNameserversSchema } from "@shared/schema";
+import { initializeDatabase } from "./init-db";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Mock user ID for development
-  const MOCK_USER_ID = "mock-user-123";
+  // Initialize database and get demo user ID
+  const demoUserId = await initializeDatabase();
 
   // Get domain statistics
   app.get("/api/domains/stats", async (req, res) => {
     try {
-      const stats = await storage.getDomainStats(MOCK_USER_ID);
+      const stats = await storage.getDomainStats(demoUserId);
       res.json(stats);
     } catch (error) {
       console.error("Error fetching domain stats:", error);
@@ -29,7 +30,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         search: search as string,
       };
 
-      const domains = await storage.getDomains(MOCK_USER_ID, filters);
+      const domains = await storage.getDomains(demoUserId, filters);
       res.json(domains);
     } catch (error) {
       console.error("Error fetching domains:", error);
@@ -110,7 +111,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get registrar connections
   app.get("/api/registrars", async (req, res) => {
     try {
-      const connections = await storage.getRegistrarConnections(MOCK_USER_ID);
+      const connections = await storage.getRegistrarConnections(demoUserId);
       // Don't send API keys/secrets to frontend
       const sanitizedConnections = connections.map(conn => ({
         ...conn,
@@ -129,7 +130,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const connectionData = insertRegistrarConnectionSchema.parse({
         ...req.body,
-        userId: MOCK_USER_ID,
+        userId: demoUserId,
       });
 
       // Test the connection before saving
@@ -172,7 +173,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/registrars/:id/sync", async (req, res) => {
     try {
       const connectionId = req.params.id;
-      const connections = await storage.getRegistrarConnections(MOCK_USER_ID);
+      const connections = await storage.getRegistrarConnections(demoUserId);
       const connection = connections.find(c => c.id === connectionId);
       
       if (!connection) {
@@ -186,7 +187,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const syncedDomains = [];
         for (const remoteDomain of remoteDomains) {
           // Check if domain already exists
-          const existingDomains = await storage.getDomains(MOCK_USER_ID, { search: remoteDomain.name });
+          const existingDomains = await storage.getDomains(demoUserId, { search: remoteDomain.name });
           const existingDomain = existingDomains.find(d => d.name === remoteDomain.name);
           
           if (existingDomain) {
@@ -201,7 +202,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           } else {
             // Create new domain
             const newDomain = await storage.createDomain({
-              userId: MOCK_USER_ID,
+              userId: demoUserId,
               registrarConnectionId: connectionId,
               name: remoteDomain.name,
               registrar: connection.registrar,
@@ -256,7 +257,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { registrar, showPrice = false, currency = 'USD' } = req.query;
 
       // Get registrar connections
-      const connections = await storage.getRegistrarConnections(MOCK_USER_ID);
+      const connections = await storage.getRegistrarConnections(demoUserId);
       
       if (registrar) {
         // Search with specific registrar
@@ -362,7 +363,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "domainNames must be an array" });
       }
 
-      const connections = await storage.getRegistrarConnections(MOCK_USER_ID);
+      const connections = await storage.getRegistrarConnections(demoUserId);
       const results = [];
 
       if (registrar) {
@@ -436,7 +437,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // API status endpoint
   app.get("/api/status", async (req, res) => {
     try {
-      const connections = await storage.getRegistrarConnections(MOCK_USER_ID);
+      const connections = await storage.getRegistrarConnections(demoUserId);
       const status = [];
 
       for (const connection of connections) {

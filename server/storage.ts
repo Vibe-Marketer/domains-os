@@ -1,5 +1,7 @@
-import { type User, type InsertUser, type Domain, type InsertDomain, type RegistrarConnection, type InsertRegistrarConnection, type DomainWithConnection, type UpdateNameservers } from "@shared/schema";
+import { type User, type InsertUser, type Domain, type InsertDomain, type RegistrarConnection, type InsertRegistrarConnection, type DomainWithConnection, type UpdateNameservers, users, registrarConnections, domains } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { db } from "./db";
+import { eq, and, like, desc } from "drizzle-orm";
 
 export interface IStorage {
   // User methods
@@ -335,4 +337,205 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export class DatabaseStorage implements IStorage {
+  // User methods
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
+  }
+
+  async createUser(userData: InsertUser): Promise<User> {
+    const [user] = await db.insert(users).values(userData).returning();
+    return user;
+  }
+
+  // Registrar connection methods
+  async getRegistrarConnections(userId: string): Promise<RegistrarConnection[]> {
+    return await db.select().from(registrarConnections)
+      .where(eq(registrarConnections.userId, userId))
+      .orderBy(desc(registrarConnections.createdAt));
+  }
+
+  async createRegistrarConnection(connectionData: InsertRegistrarConnection): Promise<RegistrarConnection> {
+    const [connection] = await db.insert(registrarConnections).values({
+      ...connectionData,
+      id: randomUUID(),
+      createdAt: new Date(),
+    }).returning();
+    return connection;
+  }
+
+  async updateRegistrarConnection(id: string, updates: Partial<RegistrarConnection>): Promise<RegistrarConnection | undefined> {
+    const [updated] = await db.update(registrarConnections)
+      .set(updates)
+      .where(eq(registrarConnections.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteRegistrarConnection(id: string): Promise<boolean> {
+    const result = await db.delete(registrarConnections)
+      .where(eq(registrarConnections.id, id));
+    return result.rowCount > 0;
+  }
+
+  // Domain methods
+  async getDomains(userId: string, filters?: { registrar?: string; status?: string; search?: string }): Promise<DomainWithConnection[]> {
+    let query = db.select({
+      id: domains.id,
+      userId: domains.userId,
+      registrarConnectionId: domains.registrarConnectionId,
+      name: domains.name,
+      registrar: domains.registrar,
+      status: domains.status,
+      expirationDate: domains.expirationDate,
+      registrationDate: domains.registrationDate,
+      nameservers: domains.nameservers,
+      autoRenew: domains.autoRenew,
+      lastUpdated: domains.lastUpdated,
+      registrarDomainId: domains.registrarDomainId,
+      registrarConnection: {
+        id: registrarConnections.id,
+        userId: registrarConnections.userId,
+        registrar: registrarConnections.registrar,
+        apiKey: registrarConnections.apiKey,
+        apiSecret: registrarConnections.apiSecret,
+        isActive: registrarConnections.isActive,
+        lastSync: registrarConnections.lastSync,
+        createdAt: registrarConnections.createdAt,
+      }
+    }).from(domains)
+      .leftJoin(registrarConnections, eq(domains.registrarConnectionId, registrarConnections.id))
+      .where(eq(domains.userId, userId));
+
+    if (filters?.registrar) {
+      query = query.where(and(eq(domains.userId, userId), eq(domains.registrar, filters.registrar)));
+    }
+    if (filters?.status) {
+      query = query.where(and(eq(domains.userId, userId), eq(domains.status, filters.status)));
+    }
+    if (filters?.search) {
+      query = query.where(and(eq(domains.userId, userId), like(domains.name, `%${filters.search}%`)));
+    }
+
+    const results = await query.orderBy(desc(domains.lastUpdated));
+    
+    return results.map(result => ({
+      ...result,
+      registrarConnection: result.registrarConnection!
+    }));
+  }
+
+  async getDomain(id: string): Promise<DomainWithConnection | undefined> {
+    const [result] = await db.select({
+      id: domains.id,
+      userId: domains.userId,
+      registrarConnectionId: domains.registrarConnectionId,
+      name: domains.name,
+      registrar: domains.registrar,
+      status: domains.status,
+      expirationDate: domains.expirationDate,
+      registrationDate: domains.registrationDate,
+      nameservers: domains.nameservers,
+      autoRenew: domains.autoRenew,
+      lastUpdated: domains.lastUpdated,
+      registrarDomainId: domains.registrarDomainId,
+      registrarConnection: {
+        id: registrarConnections.id,
+        userId: registrarConnections.userId,
+        registrar: registrarConnections.registrar,
+        apiKey: registrarConnections.apiKey,
+        apiSecret: registrarConnections.apiSecret,
+        isActive: registrarConnections.isActive,
+        lastSync: registrarConnections.lastSync,
+        createdAt: registrarConnections.createdAt,
+      }
+    }).from(domains)
+      .leftJoin(registrarConnections, eq(domains.registrarConnectionId, registrarConnections.id))
+      .where(eq(domains.id, id));
+
+    if (!result) return undefined;
+
+    return {
+      ...result,
+      registrarConnection: result.registrarConnection!
+    };
+  }
+
+  async createDomain(domainData: InsertDomain): Promise<Domain> {
+    const [domain] = await db.insert(domains).values({
+      ...domainData,
+      id: randomUUID(),
+      lastUpdated: new Date(),
+    }).returning();
+    return domain;
+  }
+
+  async updateDomain(id: string, updates: Partial<Domain>): Promise<Domain | undefined> {
+    const [updated] = await db.update(domains)
+      .set({ ...updates, lastUpdated: new Date() })
+      .where(eq(domains.id, id))
+      .returning();
+    return updated || undefined;
+  }
+
+  async updateDomainNameservers(domainId: string, nameservers: string[]): Promise<Domain | undefined> {
+    const [updated] = await db.update(domains)
+      .set({ 
+        nameservers: nameservers,
+        lastUpdated: new Date() 
+      })
+      .where(eq(domains.id, domainId))
+      .returning();
+    return updated || undefined;
+  }
+
+  async deleteDomain(id: string): Promise<boolean> {
+    const result = await db.delete(domains).where(eq(domains.id, id));
+    return result.rowCount > 0;
+  }
+
+  async bulkUpdateDomains(domainIds: string[], updates: Partial<Domain>): Promise<Domain[]> {
+    // For PostgreSQL, we'd need to use a more complex query or loop
+    const updatedDomains: Domain[] = [];
+    for (const id of domainIds) {
+      const updated = await this.updateDomain(id, updates);
+      if (updated) {
+        updatedDomains.push(updated);
+      }
+    }
+    return updatedDomains;
+  }
+
+  async getDomainStats(userId: string): Promise<{
+    totalDomains: number;
+    expiringSoon: number;
+    activeDomains: number;
+    thisMonth: number;
+  }> {
+    const userDomains = await db.select().from(domains).where(eq(domains.userId, userId));
+
+    const now = new Date();
+    const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    return {
+      totalDomains: userDomains.length,
+      expiringSoon: userDomains.filter(d => 
+        d.expirationDate <= thirtyDaysFromNow && d.expirationDate > now
+      ).length,
+      activeDomains: userDomains.filter(d => d.status === 'active').length,
+      thisMonth: userDomains.filter(d => 
+        d.registrationDate >= startOfMonth && d.registrationDate <= endOfMonth
+      ).length,
+    };
+  }
+}
+
+export const storage = new DatabaseStorage();
