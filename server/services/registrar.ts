@@ -464,7 +464,7 @@ class NamecheapAPI implements RegistrarAPI {
 
 class DynadotAPI implements RegistrarAPI {
   private apiKey: string;
-  private baseUrl = 'https://api.dynadot.com/api3.json';
+  private baseUrl = 'https://api.dynadot.com/api3.xml';
 
   constructor(apiKey: string) {
     this.apiKey = apiKey;
