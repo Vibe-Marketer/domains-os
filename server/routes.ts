@@ -249,6 +249,143 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Domain search endpoint using registrar APIs
+  app.get("/api/domains/search/:domainName", async (req, res) => {
+    try {
+      const { domainName } = req.params;
+      const { registrar, showPrice = false, currency = 'USD' } = req.query;
+
+      // Get registrar connections
+      const connections = await storage.getRegistrarConnections(MOCK_USER_ID);
+      
+      if (registrar) {
+        // Search with specific registrar
+        const connection = connections.find(c => c.registrar === registrar && c.isActive);
+        if (!connection) {
+          return res.status(404).json({ message: `No active ${registrar} connection found` });
+        }
+
+        const api = createRegistrarAPI(connection);
+        
+        // Use Dynadot-specific search if available
+        if (connection.registrar === 'dynadot' && 'searchDomain' in api) {
+          const result = await (api as any).searchDomain(domainName, showPrice === 'true', currency as string);
+          return res.json({ registrar: registrar, result });
+        }
+        
+        // Fallback to basic availability check for other registrars
+        return res.json({ 
+          registrar: registrar, 
+          result: { 
+            domain_name: domainName, 
+            available: 'unknown',
+            message: 'Search not implemented for this registrar'
+          }
+        });
+      }
+
+      // Search across all active registrars
+      const results = [];
+      for (const connection of connections.filter(c => c.isActive)) {
+        try {
+          const api = createRegistrarAPI(connection);
+          
+          if (connection.registrar === 'dynadot' && 'searchDomain' in api) {
+            const result = await (api as any).searchDomain(domainName, showPrice === 'true', currency as string);
+            results.push({ registrar: connection.registrar, result });
+          } else {
+            results.push({ 
+              registrar: connection.registrar, 
+              result: { 
+                domain_name: domainName, 
+                available: 'unknown',
+                message: 'Search not implemented for this registrar'
+              }
+            });
+          }
+        } catch (error) {
+          console.error(`Search failed for ${connection.registrar}:`, error);
+          results.push({ 
+            registrar: connection.registrar, 
+            result: { 
+              domain_name: domainName, 
+              available: 'error',
+              message: `Search failed: ${error.message}`
+            }
+          });
+        }
+      }
+
+      res.json({ results });
+    } catch (error) {
+      console.error("Domain search error:", error);
+      res.status(500).json({ message: "Failed to search domain" });
+    }
+  });
+
+  // Bulk domain search endpoint
+  app.post("/api/domains/bulk-search", async (req, res) => {
+    try {
+      const { domainNames, registrar } = req.body;
+      
+      if (!domainNames || !Array.isArray(domainNames)) {
+        return res.status(400).json({ message: "domainNames must be an array" });
+      }
+
+      const connections = await storage.getRegistrarConnections(MOCK_USER_ID);
+      const results = [];
+
+      if (registrar) {
+        // Bulk search with specific registrar
+        const connection = connections.find(c => c.registrar === registrar && c.isActive);
+        if (!connection) {
+          return res.status(404).json({ message: `No active ${registrar} connection found` });
+        }
+
+        const api = createRegistrarAPI(connection);
+        
+        if (connection.registrar === 'dynadot' && 'bulkSearchDomains' in api) {
+          const result = await (api as any).bulkSearchDomains(domainNames);
+          return res.json({ registrar: registrar, result });
+        }
+        
+        // Fallback for other registrars
+        return res.json({ 
+          registrar: registrar, 
+          result: domainNames.map(name => ({ domain_name: name, available: 'unknown' }))
+        });
+      }
+
+      // Bulk search across all registrars
+      for (const connection of connections.filter(c => c.isActive)) {
+        try {
+          const api = createRegistrarAPI(connection);
+          
+          if (connection.registrar === 'dynadot' && 'bulkSearchDomains' in api) {
+            const result = await (api as any).bulkSearchDomains(domainNames);
+            results.push({ registrar: connection.registrar, result });
+          } else {
+            results.push({ 
+              registrar: connection.registrar, 
+              result: domainNames.map(name => ({ domain_name: name, available: 'unknown' }))
+            });
+          }
+        } catch (error) {
+          console.error(`Bulk search failed for ${connection.registrar}:`, error);
+          results.push({ 
+            registrar: connection.registrar, 
+            result: domainNames.map(name => ({ domain_name: name, available: 'error' }))
+          });
+        }
+      }
+
+      res.json({ results });
+    } catch (error) {
+      console.error("Bulk domain search error:", error);
+      res.status(500).json({ message: "Failed to perform bulk search" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

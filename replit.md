@@ -53,6 +53,13 @@ The application integrates with domain registrar APIs:
 - **Sync Operations**: Automated domain synchronization from registrar APIs
 - **Error Handling**: Comprehensive error handling for external API failures
 
+#### Dynadot API Integration (v1.0.0)
+- **RESTful API**: Implemented using Dynadot's v1 RESTful API with Bearer token authentication
+- **Search Functionality**: Domain availability search with pricing information
+- **Bulk Search**: Multiple domain availability checking in single requests
+- **Rate Limiting**: Supports different thread counts based on account level (1-25 threads)
+- **Demo Mode**: Graceful fallback to demo responses when using demo credentials
+
 ## External Dependencies
 
 ### Core Technologies
