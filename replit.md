@@ -1,8 +1,8 @@
-# Domain Management Application
+# Domain OS
 
 ## Overview
 
-This is a full-stack domain management application built with React and Express.js that enables users to manage their domain portfolios across multiple registrars. The application provides a centralized dashboard for tracking domain statuses, expiration dates, nameserver configurations, and registrar connections. Users can connect to various domain registrars (GoDaddy, Namecheap, Dynadot) through API integrations and perform bulk operations on their domain collections.
+Domain OS is a full-stack unified domain management platform built with React and Express.js that enables users to manage their domain portfolios across multiple registrars. The application provides a centralized dashboard for tracking domain statuses, expiration dates, nameserver configurations, and registrar connections. Users can connect to various domain registrars (GoDaddy, Namecheap, Dynadot) through API integrations and perform bulk operations on their domain collections. The platform is specifically designed for managing high-volume cold email domains with essential features like domain information display, nameserver management, and expiration tracking.
 
 ## User Preferences
 
