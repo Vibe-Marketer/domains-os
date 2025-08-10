@@ -1,4 +1,4 @@
-# Deploying Domain OS to Railway
+# Deploying Domains OS to Railway
 
 ## Quick Deploy
 

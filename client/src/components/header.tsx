@@ -169,7 +169,7 @@ export default function Header() {
           <div className="flex items-center">
             <div className="flex-shrink-0 flex items-center space-x-3">
               <Globe className="h-8 w-8 text-primary" />
-              <h1 className="text-2xl font-bold text-foreground" data-testid="header-title">Domain OS</h1>
+              <h1 className="text-2xl font-bold text-foreground" data-testid="header-title">Domains OS</h1>
             </div>
             <nav className="hidden md:ml-8 md:flex md:space-x-8">
               <a
