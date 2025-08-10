@@ -4,6 +4,7 @@ import Header from "../components/header";
 import DashboardStats from "../components/dashboard-stats";
 import DomainTable from "../components/domain-table";
 import NameserverModal from "../components/nameserver-modal";
+import DomainSearch from "../components/domain-search";
 import { DomainFilters } from "@/lib/types";
 import { DomainWithConnection } from "@shared/schema";
 
@@ -34,6 +35,10 @@ export default function Dashboard() {
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <DashboardStats />
+        
+        <div className="mt-8 mb-8">
+          <DomainSearch />
+        </div>
         
         <DomainTable
           filters={filters}

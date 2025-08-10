@@ -310,7 +310,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             result: { 
               domain_name: domainName, 
               available: 'error',
-              message: `Search failed: ${error.message}`
+              message: `Search failed: ${error instanceof Error ? error.message : 'Unknown error'}`
             }
           });
         }
